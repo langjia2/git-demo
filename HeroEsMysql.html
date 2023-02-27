@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <!-- 引入样式 -->
+    <script src="js/vue-2.6.12.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <!-- 引入组件库 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script src="js/axios-0.21.0.js"></script>
+
+</head>
+<body>
+<div id="app">
+    <span style="width: 50%;">
+        <el-input type="text" style="width: 50%;" v-model="value"/>
+    </span>
+    <span style="width: 50%;">
+        <el-button type="primary" @click="toSelectByContentAndName">搜索</el-button>
+    </span>
+    
+    <div>
+        <el-button type="primary" @click="toShowAddForm">添加</el-button>
+        <el-table
+                :data="page.list"
+                style="width: 100%"  border
+                stripe
+                @selection-change="getIds">
+            <el-table-column
+                    header-align="center"
+                    align="center"
+                    type="selection"
+            ></el-table-column>
+            <el-table-column
+                    header-align="center"
+                    align="center"
+                    label="序号"
+                    type="index"
+                    width="100"
+            >
+            </el-table-column>
+            <el-table-column
+                    prop="id"
+                    label="主键"
+                    width="100">
+            </el-table-column>
+            <el-table-column label="姓名">
+                <template slot-scope='scope'>
+                    <span v-html="scope.row.name"></span>
+                </template>
+            </el-table-column>
+            <el-table-column
+                    prop="age"
+                    label="年龄"
+                    width="100"
+                    >
+            </el-table-column>
+            <el-table-column
+                    prop="birthday"
+                    label="生日">
+            </el-table-column>
+            
+            <el-table-column label="详情">
+                <template slot-scope='scope'>
+                    <span v-html="scope.row.content"></span>
+                </template>
+            </el-table-column>
+            <el-table-column
+                    prop="address"
+                    label="地址">
+            </el-table-column>
+            
+            
+            <!-- <el-table-column label="状态">
+                <template slot-scope='scope'>
+                    <span v-if="scope.row.state==1">在售</span>
+                    <span v-if="scope.row.state!=1">停售</span>
+                </template>
+            </el-table-column> -->
+            <el-table-column
+                    prop="department.departmentName"
+                    label="品牌">
+            </el-table-column>
+            <el-table-column
+                    header-align="center"
+                    align="center"
+                    label="操作"
+            >
+                <!-- 自定义列模板-->
+                <template slot-scope="scope">
+                    <el-button type="warning" @click="toShowUpateForm(scope.row.id)">修改</el-button>
+                    <el-button type="danger" @click="toDeleteById(scope.row.id)">删除</el-button>
+                </template>
+            </el-table-column>
+        </el-table>
+        <el-pagination layout="sizes, prev, pager, next, jumper, ->, total" :total="page.total"
+            :page-size.sync="page.pageSize" :page-sizes="page.pageSizes" :current-page.sync="page.pageNum"
+            :pager-count="page.pagerCount" @size-change="toSelectByPageForChangePageSize"
+            @current-change="toSelectByPageForChangePageNum" background>
+        </el-pagination>
+        <el-button type="danger" @click="toDeleteMany">删除选中</el-button>
+        <el-dialog :title="title" :visible.sync="showUpdateForm">
+            <el-form ref="form" :model="emp" label-width="80px">
+                <el-form-item label="名字">
+                    <el-input type="text" v-model="emp.name"/>
+                </el-form-item>
+                <el-form-item label="年龄">
+                    <el-input type="text" v-model="emp.age"/>
+                </el-form-item>
+                <el-form-item label="生日">
+                    <el-date-picker v-model="emp.birthday"
+                    type="date"
+                    value-format="yyyy-MM-dd"></el-date-picker>
+                </el-form-item>
+                <el-form-item label="详情">
+                    <el-input type="text" v-model="emp.content"/>
+                </el-form-item>
+                <el-form-item label="地址">
+                    <el-input type="text" v-model="emp.address"/>
+                </el-form-item>
+                <!-- <el-form-item label="状态">
+                    <el-radio-group v-model="emp.state">
+                        <el-radio :label="0">停售</el-radio>
+                        <el-radio :label="1">在售</el-radio>
+                    </el-radio-group>
+                </el-form-item> -->
+                <el-form-item label="品牌">
+                    <el-select v-model="emp.department.departmentId" placeholder="请选择" >
+                        <el-option
+                                v-for="item in departments"
+                                :key="item.value"
+                                :label="item.departmentName"
+                                :value="item.departmentId">
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+
+                <el-form-item>
+                    <el-button type="danger" @click="noShowUpateForm()">取消</el-button>
+                    <el-button type="primary"  @click="UpdateForm(title)">提交</el-button>
+                </el-form-item>
+            </el-form>
+        </el-dialog>
+    </div>
+</div>
+<script>
+    const vm = new Vue({
+        el:"#app",
+        data:{
+            emps:[
+                 { id: 1,name: '华为',price: 1000,state:1,department:{departmentId:1,departmentName:'iqoo'} }
+            ],
+            pageNum: 1,
+            pageSize: 5,
+            value:"",
+            page: {
+                    pageSizes: [3, 5, 10],
+                    pagerCount: 5
+                },
+            ids:[],
+            showUpdateForm:false,
+            emp:{department:{}},
+            departments:[//{
+            //     id: '选项1',
+            //     name: '黄金糕'
+            // }, {
+            //     id: '选项2',
+            //     name: '双皮奶'
+            // }, {
+            //     id: '选项3',
+            //     name: '蚵仔煎'
+            // }, {
+            //     id: '选项4',
+            //     name: '龙须面'
+            // }, {
+            //     id: '选项5',
+            //     name: '北京烤鸭'
+             //}
+            ]
+        },created(){
+            axios({
+                    method: 'get',
+                    url: "http://localhost:8989/springboot/emp/1/5",
+                    // params: {
+                    //     pageNum: 1,
+                    //     pageSize: 5
+                    // }
+                }).then((resp) => {
+                    this.page = resp.data
+                    this.page.pageSizes = [3, 5, 10],
+                        this.page.pageCount = 5
+                })
+        }
+        ,methods:{
+            getIds(val){
+                this.ids=[]
+                for(var i = 0;i<val.length;i++){
+                    this.ids.push(val[i].id)
+                }
+            },
+            toSelectAll(){
+                axios({
+                    method: 'get',
+                    url: "http://localhost:8989/springboot/emp/"+this.page.pageNum+"/"+this.page.pageSize,
+                    // params: {
+                    //     pageNum: 1,
+                    //     pageSize: 5
+                    // }
+                }).then((resp) => {
+                    this.page = resp.data
+                    this.page.pageSizes = [3, 5, 10],
+                        this.page.pageCount = 5
+                })
+            },toShowUpateForm(id){
+                axios({
+                    method: "get",
+                    url:"http://localhost:8989/springboot/emp/"+id,
+                    // params:{
+                    //     id:id
+                    // }
+                }).then((resp)=>{this.emp=resp.data})
+                axios({
+                    method: "get",
+                    url:"http://localhost:8989/springboot/department/",
+                }).then((resp)=>{
+                    this.departments=resp.data
+                    this.title="修改"
+                    this.showUpdateForm=true
+                })
+
+            }
+            ,toShowAddForm(){
+                this.emp={
+                    department:{}
+                }
+                axios({
+                    method: "get",
+                    url:"http://localhost:8989/springboot/department/",
+                }).then((resp)=>{
+                    this.departments=resp.data
+                    this.title="添加"
+                    this.showUpdateForm=true
+                })
+            },
+            noShowUpateForm(){
+                this.emp={
+                    department:{}
+                }
+                this.showUpdateForm=false
+            },
+            UpdateForm(title){
+                if (title=="添加"){
+                    console.log(this.emp)
+                    axios({
+                        method: "put",
+                        url:"http://localhost:8989/springboot/emp/",
+                        data:this.emp
+                    }).then((resp)=>{
+                        emp:{
+                            department:{}
+                        };
+                        this.toSelectAll()
+                        this.showUpdateForm=false;
+                    })
+                    // axios.post("http://localhost:8989/springboot/emp/",this.emp).then((resp)=>{
+                    //     emp:{
+                    //         department:{}
+                    //     };
+                    //     this.toSelectAll()
+                    //     this.showUpdateForm=false;
+                    // })
+                }else {
+                    axios({
+                        method: "post",
+                        url:"http://localhost:8989/springboot/emp/",
+                        data:this.emp
+                    }).then((resp)=>{
+                        emp:{
+                            department:{}
+                        };
+                        this.toSelectAll()
+                        this.showUpdateForm=false;
+                    })
+
+                }
+
+            },
+            toDeleteById(id){
+                axios({
+                    method: "delete",
+                    url:"http://localhost:8989/springboot/emp/"+id,
+                    // params:{
+                    //     id:id
+                    // }
+                }).then(()=>{
+                    this.toSelectAll()
+                })
+            },toDeleteMany(){
+                axios({
+                    method:'delete',
+                    url:'http://localhost:8989/springboot/emp/',
+                    data:this.ids
+                }).then((resp)=>{
+                    this.toSelectAll()
+                })
+            },toSelectByPageForChangePageSize(pageSize) {
+                    axios({
+                        method: 'get',
+                        url: "http://localhost:8989/springboot/emp/"+this.page.pageNum+"/"+pageSize,
+                        // params: {
+                        //     pageNum: this.page.pageNum,
+                        //     pageSize: pageSize
+                        // }
+                    }).then((resp) => {
+                        this.pageNum=resp.pageNum
+                        this.pageSize=resp.pageSize
+                        this.page = resp.data
+                        this.page.pageSizes = [3, 5, 10],
+                            this.page.pageCount = 5
+                    })
+                },
+                toSelectByPageForChangePageNum(pageNum) {
+                    axios({
+                        method: 'get',
+                        url: "http://localhost:8989/springboot/emp/"+pageNum+"/"+this.page.pageSize,
+                        // params: {
+                        //     pageNum: pageNum,
+                        //     pageSize: this.page.pageSize
+                        // }
+                    }).then((resp) => {
+                        this.pageNum=resp.pageNum
+                        this.pageSize=resp.pageSize
+                        this.page = resp.data
+                        this.page.pageSizes = [3, 5, 10],
+                            this.page.pageCount = 5
+                    })
+                },toSelectByContentAndName(){
+                    axios({
+                    method: 'get',
+                    url: "http://localhost:8989/springboot/emp/1/5/"+this.value,
+                    // params: {
+                    //     pageNum: 1,
+                    //     pageSize: 5
+                    // }
+                }).then((resp) => {
+                    this.page = resp.data
+                    this.page.pageSize = 5,
+                    this.page.pageSizes = [3, 5, 10],
+                        this.page.pageCount = 5
+                }) 
+                }
+        }
+    })
+</script>
+</body>
+</html>
